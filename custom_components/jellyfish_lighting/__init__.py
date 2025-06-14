@@ -3,7 +3,8 @@ Custom integration to integrate JellyFish Lighting with Home Assistant.
 """
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Config, HomeAssistant
+from homeassistant.core import HomeAssistant
+from homeassistant.core_config import Config
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import device_registry
@@ -73,9 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
-    await hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, LIGHT)
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, [LIGHT])
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
