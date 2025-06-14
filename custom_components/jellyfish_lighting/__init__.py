@@ -73,9 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
-    await hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, LIGHT)
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, [LIGHT])
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
