@@ -36,6 +36,7 @@ class JellyfishLightingApiClient:
         self._hass = hass
         self._controller = JellyFishController(address)
         self._connecting = asyncio.Lock()
+        self._reconnecting = False
         self.zones: List[str] = []
         self.states: Dict[str, JellyFishLightingZoneData] = {}
         self.patterns: List[str] = []
@@ -84,10 +85,13 @@ class JellyfishLightingApiClient:
 
     def _attempt_reconnect(self, *args) -> None:
         """Attempts to reconnect to the controller"""
+        if self._reconnecting:
+            return
         LOGGER.warning(
             "JellyFish controller connection error, scheduling reconnect to %s",
             self.address,
         )
+        self._reconnecting = True
         asyncio.run_coroutine_threadsafe(self._async_reconnect(), self._hass.loop)
 
     async def _async_reconnect(self):
@@ -98,20 +102,23 @@ class JellyfishLightingApiClient:
         the kernel level (stale), new connection attempts will time out
         indefinitely. We must tear down the old connection first.
         """
-        LOGGER.debug(
-            "Force-closing stale connection to JellyFish controller at %s",
-            self.address,
-        )
-        await self._hass.async_add_executor_job(self._force_close_connection)
-        # Give the controller time to release the old session
-        await asyncio.sleep(2)
         try:
-            await self.async_connect()
-        except HomeAssistantError:
-            LOGGER.warning(
-                "Reconnect to JellyFish controller at %s failed, will retry on next poll",
+            LOGGER.debug(
+                "Force-closing stale connection to JellyFish controller at %s",
                 self.address,
             )
+            await self._hass.async_add_executor_job(self._force_close_connection)
+            # Give the controller time to release the old session
+            await asyncio.sleep(2)
+            try:
+                await self.async_connect()
+            except HomeAssistantError:
+                LOGGER.warning(
+                    "Reconnect to JellyFish controller at %s failed, will retry on next poll",
+                    self.address,
+                )
+        finally:
+            self._reconnecting = False
 
     def _force_close_connection(self):
         """Force-close the underlying WebSocket and TCP connection."""
